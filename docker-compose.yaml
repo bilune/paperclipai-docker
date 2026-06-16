@@ -55,6 +55,10 @@ services:
       OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
       # Subscription auth for Claude Code CLI (claude_local adapter)
       CLAUDE_CODE_OAUTH_TOKEN: "${CLAUDE_CODE_OAUTH_TOKEN:-}"
+      # GitHub App (aerolab-ai[bot]) credentials for git auth
+      GH_APP_ID: "${GH_APP_ID:-}"
+      GH_APP_INSTALLATION_ID: "${GH_APP_INSTALLATION_ID:-}"
+      GH_APP_KEY_B64: "${GH_APP_KEY_B64:-}"
     volumes:
       - ./data/paperclip:/paperclip
     depends_on:
