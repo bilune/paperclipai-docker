@@ -59,6 +59,8 @@ services:
       GH_APP_ID: "${GH_APP_ID:-}"
       GH_APP_INSTALLATION_ID: "${GH_APP_INSTALLATION_ID:-}"
       GH_APP_KEY_B64: "${GH_APP_KEY_B64:-}"
+      # Comma-separated repos auto-cloned into /paperclip/workspace on boot
+      WORKSPACE_REPOS: "${WORKSPACE_REPOS:-}"
     volumes:
       - ./data/paperclip:/paperclip
     depends_on:
