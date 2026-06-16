@@ -53,6 +53,8 @@ services:
       # API keys for AI agents (optional)
       ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
       OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
+      # Subscription auth for Claude Code CLI (claude_local adapter)
+      CLAUDE_CODE_OAUTH_TOKEN: "${CLAUDE_CODE_OAUTH_TOKEN:-}"
     volumes:
       - ./data/paperclip:/paperclip
     depends_on:
