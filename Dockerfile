@@ -56,13 +56,6 @@ RUN git clone https://github.com/paperclipai/paperclip.git . \
 FROM deps AS build
 WORKDIR /app
 
-# Aerolab: Paperclip only stashes the raw request body for JSON requests, so
-# Slack slash-command / interactivity webhooks (urlencoded) fail HMAC signature
-# verification. This patch adds a urlencoded parser that also captures the raw
-# body. Upstream gap (present on master too); remove if upstream fixes it.
-COPY patch-rawbody.cjs /tmp/patch-rawbody.cjs
-RUN node /tmp/patch-rawbody.cjs
-
 RUN pnpm --filter @paperclipai/ui build \
   && pnpm --filter @paperclipai/plugin-sdk build \
   && pnpm --filter @paperclipai/server build \
