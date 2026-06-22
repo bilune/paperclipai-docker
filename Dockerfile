@@ -40,14 +40,13 @@ RUN usermod -u $USER_UID --non-unique node \
 FROM base AS deps
 WORKDIR /app
 
-# Aerolab: pin Paperclip to the commit just BEFORE the company-scoped-plugin
-# security migration (PAP-2394). Upstream master ships that migration only
-# half-done, which fail-closes plugin secret refs (#5429, 2026-05-09) and the
-# plugin runtime invocation scope (#6547, 2026-05-22), breaking this plugin's
-# secret resolution + host calls. This commit (parent of #5429) predates all of
-# it, so plugin secret-refs and host services work natively — no source patches.
-# Revisit/bump once upstream finishes PAP-2394 (re-enables company-scoped refs).
-ARG PAPERCLIP_REF=06e6ee25cd7e3e882b7dda398243c2b0095cd22a
+# Aerolab: pin Paperclip to a recent master commit. We need master (not an older
+# pre-migration pin) because the plugin's agent-callable tools only register on
+# the host after the tool-dispatcher fix #5671 (2026-06-04), and master's plugin
+# SDK matches paperclip-plugin-slack v2.0.6. master also carries the incomplete
+# company-scoped-plugin migration (PAP-2394), which we neutralise via the patches
+# below (single-tenant instance). Bump this SHA to re-pull a newer master.
+ARG PAPERCLIP_REF=03362b347d669c0aa3a9cf3803361e636ce4f28d
 RUN git clone https://github.com/paperclipai/paperclip.git . \
   && git checkout "$PAPERCLIP_REF" \
   && pnpm install --frozen-lockfile
@@ -56,10 +55,14 @@ RUN git clone https://github.com/paperclipai/paperclip.git . \
 FROM deps AS build
 WORKDIR /app
 
-# Aerolab: capture the raw body for urlencoded plugin webhooks (Slack slash
-# commands / interactivity) so HMAC signature verification works. Scoped to the
-# webhook route only (a global urlencoded parser breaks HTTP serving). Upstream
-# gap (present on master too); remove if upstream captures urlencoded raw bodies.
+# Aerolab patch #1: re-enable plugin secret-ref resolution (runtime resolver +
+# config endpoint), neutralised by PAP-2394 on master. Single-tenant instance.
+COPY patch-secret-refs.cjs /tmp/patch-secret-refs.cjs
+RUN node /tmp/patch-secret-refs.cjs
+
+# Aerolab patch #2: capture the raw body for urlencoded plugin webhooks (Slack
+# slash commands / interactivity) so HMAC signature verification works. Scoped to
+# the webhook route only (a global urlencoded parser breaks HTTP serving).
 COPY patch-webhook-rawbody.cjs /tmp/patch-webhook-rawbody.cjs
 RUN node /tmp/patch-webhook-rawbody.cjs
 
