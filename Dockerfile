@@ -40,30 +40,21 @@ RUN usermod -u $USER_UID --non-unique node \
 FROM base AS deps
 WORKDIR /app
 
-RUN git clone --depth 1 https://github.com/paperclipai/paperclip.git . \
+# Aerolab: pin Paperclip to the commit just BEFORE the company-scoped-plugin
+# security migration (PAP-2394). Upstream master ships that migration only
+# half-done, which fail-closes plugin secret refs (#5429, 2026-05-09) and the
+# plugin runtime invocation scope (#6547, 2026-05-22), breaking this plugin's
+# secret resolution + host calls. This commit (parent of #5429) predates all of
+# it, so plugin secret-refs and host services work natively — no source patches.
+# Revisit/bump once upstream finishes PAP-2394 (re-enables company-scoped refs).
+ARG PAPERCLIP_REF=06e6ee25cd7e3e882b7dda398243c2b0095cd22a
+RUN git clone https://github.com/paperclipai/paperclip.git . \
+  && git checkout "$PAPERCLIP_REF" \
   && pnpm install --frozen-lockfile
 
 # --- Stage 3: Build all packages ---
 FROM deps AS build
 WORKDIR /app
-
-# Aerolab override: restore plugin secret-ref resolution (single-tenant).
-# Upstream master fail-closes plugin secret refs (kill switch in
-# server/src/services/plugin-secrets-handler.ts) until company-scoped plugin
-# config lands. This instance is single-company, so we replace that file with
-# a version that resolves secret UUIDs directly. Needed for paperclip-plugin-slack.
-COPY patch-plugin-secrets-handler.ts /app/server/src/services/plugin-secrets-handler.ts
-
-# Aerolab override #2: the config endpoint (POST /api/plugins/:id/config) also
-# fail-closes any config containing secret-ref UUIDs with a 422, independently
-# of the runtime handler above. Neutralise that guard so the Slack plugin config
-# (slackTokenRef / slackSigningSecretRef) is accepted. Leaves an escape hatch:
-# set PAPERCLIP_ENFORCE_PLUGIN_SECRET_KILLSWITCH=1 to restore upstream behaviour.
-# Fails the build loudly if the upstream guard pattern is no longer present.
-RUN grep -q 'if (secretRefsByPath.size > 0) {' server/src/routes/plugins.ts \
-  && perl -0pi -e 's/if \(secretRefsByPath\.size > 0\) \{/if (secretRefsByPath.size > 0 \&\& process.env.PAPERCLIP_ENFORCE_PLUGIN_SECRET_KILLSWITCH === "1") {/' server/src/routes/plugins.ts \
-  && ! grep -q 'if (secretRefsByPath.size > 0) {' server/src/routes/plugins.ts \
-  || (echo "ERROR: plugin config kill-switch guard pattern not found/patched (upstream changed)" && exit 1)
 
 RUN pnpm --filter @paperclipai/ui build \
   && pnpm --filter @paperclipai/plugin-sdk build \
