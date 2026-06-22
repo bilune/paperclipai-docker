@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# slack-notify — let an agent (or any process in the container) post a message
+# to Slack via the Aerolab bot. Usage:
+#   slack-notify "your message"            # posts to SLACK_DEFAULT_CHANNEL
+#   slack-notify "your message" C0XXXXXXX  # posts to a specific channel id
+#
+# Env:
+#   SLACK_BOT_TOKEN       (required)  xoxb-... bot token
+#   SLACK_DEFAULT_CHANNEL (optional)  default channel id when arg 2 omitted
+set -euo pipefail
+
+MSG="${1:?usage: slack-notify <message> [channel_id]}"
+CHANNEL="${2:-${SLACK_DEFAULT_CHANNEL:-}}"
+
+if [ -z "${SLACK_BOT_TOKEN:-}" ]; then
+  echo "slack-notify: SLACK_BOT_TOKEN is not set" >&2
+  exit 1
+fi
+if [ -z "$CHANNEL" ]; then
+  echo "slack-notify: no channel (set SLACK_DEFAULT_CHANNEL or pass one as arg 2)" >&2
+  exit 1
+fi
+
+PAYLOAD="$(python3 -c 'import json,sys; print(json.dumps({"channel": sys.argv[1], "text": sys.argv[2]}))' "$CHANNEL" "$MSG")"
+
+RESPONSE="$(curl -sS -X POST https://slack.com/api/chat.postMessage \
+  -H "Authorization: Bearer ${SLACK_BOT_TOKEN}" \
+  -H "Content-Type: application/json; charset=utf-8" \
+  --max-time 15 \
+  --data "$PAYLOAD")"
+
+# Surface success/failure clearly for the agent.
+python3 - "$RESPONSE" <<'PY'
+import json, sys
+try:
+    d = json.loads(sys.argv[1])
+except Exception:
+    print("slack-notify: could not parse Slack response:", sys.argv[1], file=sys.stderr)
+    sys.exit(1)
+if d.get("ok"):
+    print(f"slack-notify: sent (ts={d.get('ts')})")
+else:
+    print(f"slack-notify: FAILED ({d.get('error')})", file=sys.stderr)
+    sys.exit(1)
+PY

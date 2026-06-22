@@ -89,7 +89,10 @@ RUN npm install --global --omit=dev \
   && chown node:node /paperclip
 
 COPY docker-entrypoint.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+# Aerolab: slack-notify lets agents proactively message Slack via the bot
+# (the plugin's agent-tools don't register against this Paperclip; see fork README).
+COPY slack-notify /usr/local/bin/slack-notify
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh /usr/local/bin/slack-notify
 
 ENV NODE_ENV=production \
   HOME=/paperclip \

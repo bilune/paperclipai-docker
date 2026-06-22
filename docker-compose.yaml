@@ -61,6 +61,10 @@ services:
       GH_APP_KEY_B64: "${GH_APP_KEY_B64:-}"
       # Comma-separated repos auto-cloned into /paperclip/workspace on boot
       WORKSPACE_REPOS: "${WORKSPACE_REPOS:-}"
+      # Aerolab: bot token + default channel for the `slack-notify` helper that
+      # lets agents proactively message Slack.
+      SLACK_BOT_TOKEN: "${SLACK_BOT_TOKEN:-}"
+      SLACK_DEFAULT_CHANNEL: "${SLACK_DEFAULT_CHANNEL:-}"
     volumes:
       - ./data/paperclip:/paperclip
     depends_on:
