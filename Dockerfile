@@ -56,6 +56,13 @@ RUN git clone https://github.com/paperclipai/paperclip.git . \
 FROM deps AS build
 WORKDIR /app
 
+# Aerolab: capture the raw body for urlencoded plugin webhooks (Slack slash
+# commands / interactivity) so HMAC signature verification works. Scoped to the
+# webhook route only (a global urlencoded parser breaks HTTP serving). Upstream
+# gap (present on master too); remove if upstream captures urlencoded raw bodies.
+COPY patch-webhook-rawbody.cjs /tmp/patch-webhook-rawbody.cjs
+RUN node /tmp/patch-webhook-rawbody.cjs
+
 RUN pnpm --filter @paperclipai/ui build \
   && pnpm --filter @paperclipai/plugin-sdk build \
   && pnpm --filter @paperclipai/server build \
