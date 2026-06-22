@@ -54,6 +54,17 @@ WORKDIR /app
 # a version that resolves secret UUIDs directly. Needed for paperclip-plugin-slack.
 COPY patch-plugin-secrets-handler.ts /app/server/src/services/plugin-secrets-handler.ts
 
+# Aerolab override #2: the config endpoint (POST /api/plugins/:id/config) also
+# fail-closes any config containing secret-ref UUIDs with a 422, independently
+# of the runtime handler above. Neutralise that guard so the Slack plugin config
+# (slackTokenRef / slackSigningSecretRef) is accepted. Leaves an escape hatch:
+# set PAPERCLIP_ENFORCE_PLUGIN_SECRET_KILLSWITCH=1 to restore upstream behaviour.
+# Fails the build loudly if the upstream guard pattern is no longer present.
+RUN grep -q 'if (secretRefsByPath.size > 0) {' server/src/routes/plugins.ts \
+  && perl -0pi -e 's/if \(secretRefsByPath\.size > 0\) \{/if (secretRefsByPath.size > 0 \&\& process.env.PAPERCLIP_ENFORCE_PLUGIN_SECRET_KILLSWITCH === "1") {/' server/src/routes/plugins.ts \
+  && ! grep -q 'if (secretRefsByPath.size > 0) {' server/src/routes/plugins.ts \
+  || (echo "ERROR: plugin config kill-switch guard pattern not found/patched (upstream changed)" && exit 1)
+
 RUN pnpm --filter @paperclipai/ui build \
   && pnpm --filter @paperclipai/plugin-sdk build \
   && pnpm --filter @paperclipai/server build \
