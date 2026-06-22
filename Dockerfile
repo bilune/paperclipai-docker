@@ -47,6 +47,13 @@ RUN git clone --depth 1 https://github.com/paperclipai/paperclip.git . \
 FROM deps AS build
 WORKDIR /app
 
+# Aerolab override: restore plugin secret-ref resolution (single-tenant).
+# Upstream master fail-closes plugin secret refs (kill switch in
+# server/src/services/plugin-secrets-handler.ts) until company-scoped plugin
+# config lands. This instance is single-company, so we replace that file with
+# a version that resolves secret UUIDs directly. Needed for paperclip-plugin-slack.
+COPY patch-plugin-secrets-handler.ts /app/server/src/services/plugin-secrets-handler.ts
+
 RUN pnpm --filter @paperclipai/ui build \
   && pnpm --filter @paperclipai/plugin-sdk build \
   && pnpm --filter @paperclipai/server build \
